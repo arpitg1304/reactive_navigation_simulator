@@ -34,7 +34,7 @@ def graph(event):
 
 def save(event):
     global points_list
-    np.save('target_n_polygons', points_list)
+    np.save('around_30', points_list)
 
 c = Canvas(root, bg="white", width=700, height= 700)
 c.configure(cursor="crosshair")

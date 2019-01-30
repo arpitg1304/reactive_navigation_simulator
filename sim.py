@@ -4,6 +4,10 @@ import numpy as np
 import random
 import math
 from tkinter import messagebox
+import time
+# import pyscreenshot as ImageGrab
+
+# root = Tk()
 
 if sys.version_info[0] >= 3:
     import PySimpleGUI as sg
@@ -26,7 +30,33 @@ def calculateDistance(x1,y1,x2,y2):
 
 def calculate_heading(x1,y1,x2,y2):
     heading = math.atan2(y2-y1, x2-x1)
-    return heading
+    return math.degrees(heading)
+
+class Robot:
+    def __init__(self, canvas, color):
+        self.canvas = canvas
+        # self.id = self.canvas.create_oval(-10, 10, 10, -10, fill=color)
+        self.id = create_circle(350,350, 10, self.canvas, 'black')
+        self.step_size = 20
+        self.canvas_height = self.canvas.winfo_height()
+        self.canvas_width = self.canvas.winfo_width()
+        self.x = 350
+        self.y = 200
+
+    def draw(self):
+        # self.canvas.move(self.id,0, 0)
+        pos = self.canvas.coords(self.id)
+
+    def trace_path(self):
+        path = np.load('robot_trace.npy')
+        # self.canvas.move(self.id, 350, 350)
+        for p in path:
+            # print(p)
+            create_circle(p[0],p[1], 2, self.canvas, 'black', outline = "blue")
+            self.canvas.update()
+            time.sleep(0.05)
+
+
 
 class Maze:
     def __init__(self, canvas):
@@ -49,7 +79,11 @@ class Maze:
 
         self.canvas.create_text(850,500, fill="darkblue", font="Times 15 bold", text="Sonar sweeping")
 
-        self.sonar_status = self.canvas.create_text(850,530, fill="darkblue", font="Times 15 bold", text="Off")
+        self.sonar_status = self.canvas.create_text(850,530, fill="darkblue", font="Times 15 bold", text="True")
+
+        self.canvas.create_text(850,600, fill="darkblue", font="Times 15 bold", text="Tracking")
+
+        self.tracking_status = self.canvas.create_text(850,630, fill="darkblue", font="Times 15 bold", text="False")
 
         target = np.load('only_target.npy')
 
@@ -57,7 +91,7 @@ class Maze:
 
         # print("Target is id "+str(self.target))
 
-        polygons = np.load('target_n_polygons.npy')
+        polygons = np.load('polygons3.npy')
 
         for i in range(0, len(polygons)):
             if len(polygons[i]) == 2:
@@ -76,22 +110,21 @@ class Sonar():
         self.prev_id = None
         self.lines_id = []
         self.allowed_dir = []
+        self.range = 60
 
     def sweep(self, original_items, target_id):
-
-        # print('The original items are')
-        # print(original_items)
+        r = self.range
 
         # Throwing 8 beams at 45 degree interval
         center_pos = self.position
-        x1,y1 = (center_pos[0]), (center_pos[1] - 60)
-        x2, y2 = (center_pos[0] + 60 * math.cos(math.radians(45))) , (center_pos[1] - 60 * math.sin(math.radians(45)))
-        x3, y3 = (center_pos[0] + 60) , center_pos[1]
-        x4, y4 = (center_pos[0] + 60 * math.cos(math.radians(45))) , (center_pos[1] + 60 * math.sin(math.radians(45)))
-        x5, y5 = (center_pos[0]), (center_pos[1] + 60)
-        x6, y6 = (center_pos[0] - 60 * math.cos(math.radians(45))) , (center_pos[1] + 60 * math.sin(math.radians(45)))
-        x7, y7 = (center_pos[0] - 60) , center_pos[1]
-        x8, y8 = (center_pos[0] - 60 * math.cos(math.radians(45))) , (center_pos[1] - 60 * math.sin(math.radians(45)))
+        x1,y1 = (center_pos[0]), (center_pos[1] - r)
+        x2, y2 = (center_pos[0] + r * math.cos(math.radians(45))) , (center_pos[1] - r * math.sin(math.radians(45)))
+        x3, y3 = (center_pos[0] + r) , center_pos[1]
+        x4, y4 = (center_pos[0] + r * math.cos(math.radians(45))) , (center_pos[1] + r * math.sin(math.radians(45)))
+        x5, y5 = (center_pos[0]), (center_pos[1] + r)
+        x6, y6 = (center_pos[0] - r * math.cos(math.radians(45))) , (center_pos[1] + r * math.sin(math.radians(45)))
+        x7, y7 = (center_pos[0] - r) , center_pos[1]
+        x8, y8 = (center_pos[0] - r * math.cos(math.radians(45))) , (center_pos[1] - r * math.sin(math.radians(45)))
 
         x_list = [x1,x2,x3,x4,x5,x6,x7,x8]
         y_list = [y1,y2,y3,y4,y5,y6,y7,y8]
@@ -99,23 +132,6 @@ class Sonar():
         for i in range(0,8):
 
             self.lines_id.append(self.canvas.create_line(self.position[0], self.position[1], x_list[i], y_list[i], fill="blue", dash = 4))
-
-
-        # FInding obstacles based on the sphere method...abandoning
-
-        # cc = self.canvas.coords(self.id)
-        #
-        # obstacles = self.canvas.find_overlapping(cc[0], cc[1], cc[2], cc[3])
-        #
-        # # print(obstacles)
-        #
-        # for obstacle in obstacles:
-        #     if obstacle in original_items and obstacle !=1:
-        #         obst_coords = self.canvas.coords(obstacle)
-        #         list_coords = np.array_split(obst_coords, len(obst_coords)/2)
-            # print("Current obstacles are " + str(obstacle))
-                # print(list_coords)
-
 
         restricted_directions = []
 
@@ -139,18 +155,21 @@ class Sonar():
                 restricted_directions.append(1)
             else:
                 restricted_directions.append(0)
-            # print((orig_obs))
-
-        # print(restricted_directions)
 
         for i in range(0,8):
             if restricted_directions[i] == 0:
                 self.allowed_dir.append(self.angles[i])
 
+        # print((self.allowed_dir))
 
-        # print('The allowed directions are')
-
-        # print(self.allowed_dir)
+        # ------------------------Target centric ---------------
+        # if len(self.allowed_dir) == 8:
+        #     self.canvas.delete(self.id)
+        #
+        #     for i in self.lines_id:
+        #         self.canvas.delete(i)
+        #     self.lines_id = []
+        #     return -1
 
         if len(self.allowed_dir) > 0:
             allowed_dir = random.choice(self.allowed_dir)
@@ -160,13 +179,8 @@ class Sonar():
         dir_map = [270,315,0,45,90,135,180,225, 360]
         dir_orig  = [0,45,90,135,180,225,270,315, 360]
 
-        # print('Original heading '+str(allowed_dir) )
         index_angle = dir_orig.index(allowed_dir)
         allowed_dir = dir_map[index_angle]
-
-        # print('after mapping'+ str(allowed_dir))
-
-
 
         self.canvas.delete(self.id)
 
@@ -175,33 +189,15 @@ class Sonar():
         self.lines_id = []
         return allowed_dir
 
-
-class Robot:
-    def __init__(self, canvas, color):
-        self.canvas = canvas
-        # self.id = self.canvas.create_oval(-10, 10, 10, -10, fill=color)
-        self.id = create_circle(0,0, 10, self.canvas, 'black')
-        self.canvas.move(self.id, 350, 350)
-        self.step_size = 10
-        self.canvas_height = self.canvas.winfo_height()
-        self.canvas_width = self.canvas.winfo_width()
-        self.x = 350
-        self.y = 200
-
-    def draw(self):
-        self.canvas.move(self.id,0, 0)
-        pos = self.canvas.coords(self.id)
-
-
 def robomulator():
     track = False
     robot_positions = []
     reached = False
     move = False
     last_sonar = None
-    sweeping = False
+    sweeping = True
     layout = [[sg.Canvas(size=(1000, 700), background_color='white', key='canvas')],
-              [sg.T(''), sg.Button('Quit'), sg.Button('Sonar_Sweep'),  sg.Button('Start/Stop'), sg.Button('Move-R'), sg.Button('Move-L'), sg.Button('Move-U'), sg.Button('Move-D'), sg.Button('Tracking On/Off')]]
+              [sg.T(''), sg.Button('Quit'), sg.Button('Sonar_Sweep'),  sg.Button('Start/Stop'), sg.Button('Move-R'), sg.Button('Move-L'), sg.Button('Move-U'), sg.Button('Move-D'), sg.Button('Tracking On/Off'), sg.Button('Trace'), sg.Button('Save-Path')]]
 
     window = sg.Window('Robot Simulator', return_keyboard_events=True).Layout(layout).Finalize()
 
@@ -235,18 +231,12 @@ def robomulator():
         center_pos = [pos[0] + 10, pos[1] + 10]
         center_pos = [round(center_pos[0],2), round(center_pos[1],2)]
 
-        # sonar = Sonar(canvas, center_pos)
-        # sonar.sweep()
-
-        # print(pos_target)
-
         event, values = window.Read(timeout=0)
-        # canvas.move(1, 2, -9)
 
         x_vel = random.randint(-1,1)
         y_vel = random.randint(-1,1)
 
-        heading = calculate_heading(target_center_pos[0], target_center_pos[1] , center_pos[0], center_pos[1])
+        target_heading = calculate_heading(target_center_pos[0], target_center_pos[1] , center_pos[0], center_pos[1])
 
         angles = range(0,360,45)
         rand_angle = random.choice(angles)
@@ -256,9 +246,6 @@ def robomulator():
 
         x_dir = math.cos(heading)
         y_dir = math.sin(heading)
-        # print(x_vel, y_vel)
-
-
 
         # Events binding started
 
@@ -274,16 +261,19 @@ def robomulator():
         if event is None or event == 'Move-U':
             canvas.move(1, 0, -10)
 
-        robot_positions.append(center_pos)
+        # robot_positions.append(center_pos)
 
         if event == 'Quit':
             exit(69)
 
+        if event == "Save-Path":
+            np.save('robot_trace.npy', robot_positions)
+
+
         if event == "Tracking On/Off":
-            if track == True:
-                track = False
-            else:
-                track = True
+            track = not track
+            canvas.itemconfig(maze.tracking_status, text = str(track))
+
 
         if event == "Start/Stop":
             move = not move
@@ -292,49 +282,44 @@ def robomulator():
             sweeping = not sweeping
             canvas.itemconfig(maze.sonar_status, text = str(sweeping))
 
+        if event == "Trace":
+            robot.trace_path()
+
+        # Events binding end
 
         if sweeping and move and reached is not True:
             sonar = Sonar(canvas, center_pos)
 
             allowed_dir = sonar.sweep(original_items, maze.target)
 
-            # heading = random.choice(allowed_dir)
-            # print('Heading is ' + str(allowed_dir))
+            # ------------------------Target centric ---------------
+            # if allowed_dir == -1:
+            #     allowed_dir = 180+target_heading
 
             x_dir = math.cos(math.radians(allowed_dir))
             y_dir = math.sin(math.radians(allowed_dir))
 
-            # if i % 10 == 0:
-            #
-            #     canvas.move(robot.id, robot.step_size* x_dir, robot.step_size* y_dir)
-
         if i % 5 == 0 and reached is not True and move:
             canvas.move(robot.id, robot.step_size* x_dir, robot.step_size* y_dir)
-
-
-
+            robot_positions.append(center_pos)
             canvas.itemconfig(maze.rotation, text = str(round(allowed_dir,2))+" degrees")
-
-        # Events binding end
 
         canvas.itemconfig(maze.pos_out, text = str(center_pos))
 
         if track:
-            create_circle(center_pos[0], center_pos[1], 2, canvas, '', outline = "blue")
-
-
+            create_circle(center_pos[0], center_pos[1], 2, canvas, 'black', outline = "blue")
+            if len(robot_positions) > 2:
+                l = len(robot_positions)
+                p_x1, p_y1 = robot_positions[l-1][0], robot_positions[l-1][1]
+                p_x2, p_y2 = robot_positions[l-2][0], robot_positions[l-2][1]
+                canvas.create_line(p_x1, p_y1, p_x2, p_y2, fill="blue")
 
         dist_to_target = calculateDistance(center_pos[0], center_pos[1], target_center_pos[0], target_center_pos[1])
-        #
-        # # print(dist_to_target)
-        #
+
         if dist_to_target <= 20:
             # exit(69)
             # messagebox.showinfo("Title", "a Tk MessageBox")
             reached = True
-            # canvas.after(10)
-
-        # print(canvas.coords(10))
 
         canvas.after(10)
 
