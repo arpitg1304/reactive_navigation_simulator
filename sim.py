@@ -77,7 +77,13 @@ class Maze:
 
         self.rotation = self.canvas.create_text(850,150, fill="darkblue", font="Times 15 bold", text="Rotation")
 
-        self.canvas.create_text(850,500, fill="darkblue", font="Times 15 bold", text="Sonar sweeping")
+        self.canvas.create_text(850,600, fill="darkblue", font="Times 15 bold", text="Tracking")
+
+        self.canvas.create_text(850,200, fill="darkblue", font="Times 15 bold", text="Target Centric Navigation")
+
+        self.target_strategy = self.canvas.create_text(850,230, fill="darkblue", font="Times 15 bold", text="False")
+
+        self.canvas.create_text(850,500, fill="darkblue", font="Times 15 bold", text="Obstacle Avoidance")
 
         self.sonar_status = self.canvas.create_text(850,530, fill="darkblue", font="Times 15 bold", text="True")
 
@@ -112,7 +118,7 @@ class Sonar():
         self.allowed_dir = []
         self.range = 60
 
-    def sweep(self, original_items, target_id):
+    def sweep(self, original_items, target_id, target_centric = False):
         r = self.range
 
         # Throwing 8 beams at 45 degree interval
@@ -163,13 +169,14 @@ class Sonar():
         # print((self.allowed_dir))
 
         # ------------------------Target centric ---------------
-        # if len(self.allowed_dir) == 8:
-        #     self.canvas.delete(self.id)
-        #
-        #     for i in self.lines_id:
-        #         self.canvas.delete(i)
-        #     self.lines_id = []
-        #     return -1
+        if target_centric:
+            if len(self.allowed_dir) == 8:
+                self.canvas.delete(self.id)
+
+                for i in self.lines_id:
+                    self.canvas.delete(i)
+                self.lines_id = []
+                return -1
 
         if len(self.allowed_dir) > 0:
             allowed_dir = random.choice(self.allowed_dir)
@@ -196,8 +203,9 @@ def robomulator():
     move = False
     last_sonar = None
     sweeping = True
+    target_centric = False
     layout = [[sg.Canvas(size=(1000, 700), background_color='white', key='canvas')],
-              [sg.T(''), sg.Button('Quit'), sg.Button('Sonar_Sweep'),  sg.Button('Start/Stop'), sg.Button('Move-R'), sg.Button('Move-L'), sg.Button('Move-U'), sg.Button('Move-D'), sg.Button('Tracking On/Off'), sg.Button('Trace'), sg.Button('Save-Path')]]
+              [sg.T(''), sg.Button('Quit'), sg.Button('Sonar_Sweep'),  sg.Button('Start/Stop'), sg.Button('Move-R'), sg.Button('Move-L'), sg.Button('Move-U'), sg.Button('Move-D'), sg.Button('Tracking On/Off'), sg.Button('Trace'), sg.Button('Save-Path'), sg.Button('Target_centric')]]
 
     window = sg.Window('Robot Simulator', return_keyboard_events=True).Layout(layout).Finalize()
 
@@ -261,10 +269,16 @@ def robomulator():
         if event is None or event == 'Move-U':
             canvas.move(1, 0, -10)
 
+
+
         # robot_positions.append(center_pos)
 
         if event == 'Quit':
             exit(69)
+
+        if event == 'Target_centric':
+            target_centric = not target_centric
+            canvas.itemconfig(maze.target_strategy, text = str(target_centric))
 
         if event == "Save-Path":
             np.save('robot_trace.npy', robot_positions)
@@ -290,11 +304,17 @@ def robomulator():
         if sweeping and move and reached is not True:
             sonar = Sonar(canvas, center_pos)
 
-            allowed_dir = sonar.sweep(original_items, maze.target)
+
 
             # ------------------------Target centric ---------------
-            # if allowed_dir == -1:
-            #     allowed_dir = 180+target_heading
+            if target_centric:
+
+                allowed_dir = sonar.sweep(original_items, maze.target, True)
+                if allowed_dir == -1:
+                    allowed_dir = 180+target_heading
+
+            else:
+                allowed_dir = sonar.sweep(original_items, maze.target, False)
 
             x_dir = math.cos(math.radians(allowed_dir))
             y_dir = math.sin(math.radians(allowed_dir))
