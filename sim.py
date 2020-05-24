@@ -97,7 +97,7 @@ class Maze:
 
         # print("Target is id "+str(self.target))
 
-        polygons = np.load('polygons3.npy')
+        polygons = np.load('polygons2.npy')
 
         for i in range(0, len(polygons)):
             if len(polygons[i]) == 2:
